@@ -18,6 +18,8 @@
 package org.apache.cassandra.service;
 
 import java.io.File;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryPoolMXBean;
@@ -76,6 +78,7 @@ import org.apache.cassandra.utils.Pair;
 public class CassandraDaemon
 {
     public static final String MBEAN_NAME = "org.apache.cassandra.db:type=NativeAccess";
+    private static File pidFile = null;
     
     static
     {
@@ -451,6 +454,12 @@ public class CassandraDaemon
             logger.info("Not starting RPC server as requested. Use JMX (StorageService->startRPCServer()) or nodetool (enablethrift) to start it");
     }
 
+
+    public static String getPID() {
+        String processName = ManagementFactory.getRuntimeMXBean().getName();
+        return Long.toString(Long.parseLong(processName.split("@")[0]));
+    }
+
     /**
      * Stop the daemon, ideally in an idempotent manner.
      *
@@ -478,7 +487,7 @@ public class CassandraDaemon
      */
     public void activate()
     {
-        String pidFile = System.getProperty("cassandra-pidfile");
+        String pidFilePath = System.getProperty("cassandra-pidfile");
 
         try
         {
@@ -497,7 +506,12 @@ public class CassandraDaemon
 
             if (pidFile != null)
             {
-                new File(pidFile).deleteOnExit();
+                pidFile = new File(pidFilePath);
+                pidFile.deleteOnExit();
+                FileWriter fw = new FileWriter(pidFile.getAbsoluteFile());
+                BufferedWriter bw = new BufferedWriter(fw);
+                bw.write(CassandraDaemon.getPID());
+                bw.close();
             }
 
             if (System.getProperty("cassandra-foreground") == null)
